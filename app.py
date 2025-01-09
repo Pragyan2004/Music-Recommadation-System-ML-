@@ -3,9 +3,17 @@ import streamlit as st
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from PIL import Image
+from dotenv import load_dotenv
+import os
 
-CLIENT_SECRET = CLIENT_ID = "<Your Spotify Client ID>"
-CLIENT_SECRET = "<Your Spotify Client Secret>"
+
+
+load_dotenv()
+
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+
+
 
 client_credentials_manager = SpotifyClientCredentials(client_id=CLIENT_ID, client_secret=CLIENT_SECRET)
 sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
@@ -20,9 +28,10 @@ def get_song_album_cover_url(song_name, artist_name):
     if results and results["tracks"]["items"]:
         track = results["tracks"]["items"][0]
         album_cover_url = track["album"]["images"][0]["url"]
-        return album_cover_url
+        spotify_url = track["external_urls"]["spotify"]  
+        return album_cover_url, spotify_url
     else:
-        return "https://i.postimg.cc/0QNxYz4V/social.png"
+        return "https://i.postimg.cc/0QNxYz4V/social.png", "#"
 
 def recommend(song):
     try:
@@ -35,13 +44,16 @@ def recommend(song):
 
     recommended_music_names = []
     recommended_music_posters = []
+    recommended_spotify_links = [] 
 
     for i in distances[1:6]:  
         artist = music.iloc[i[0]].artist
-        recommended_music_posters.append(get_song_album_cover_url(music.iloc[i[0]].song, artist))
+        album_cover_url, spotify_url = get_song_album_cover_url(music.iloc[i[0]].song, artist)
+        recommended_music_posters.append(album_cover_url)
         recommended_music_names.append(music.iloc[i[0]].song)
+        recommended_spotify_links.append(spotify_url)
 
-    return recommended_music_names, recommended_music_posters
+    return recommended_music_names, recommended_music_posters, recommended_spotify_links
 
 st.set_page_config(page_title="Music Recommender", page_icon="🎶", layout="centered")
 
@@ -60,7 +72,8 @@ st.markdown("""
         .recommendation-container {
             display: flex;
             flex-wrap: wrap;
-            justify-content: space-around;
+            justify-content: start;  /* Align items to the left */
+            gap: 20px;  /* Add space between items */
         }
         .recommendation-item {
             text-align: center;
@@ -81,6 +94,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+
 st.markdown("<div class='header'>Welcome to the Music Recommender System 🎶</div>", unsafe_allow_html=True)
 
 search_query = st.text_input("Search for a song", placeholder="Enter song name...")
@@ -92,17 +106,20 @@ if search_query:
         selected_song = st.selectbox("Select a song from the results", filtered_music['song'].values)
 
         if st.button('Show Recommendations'):
-            recommended_music_names, recommended_music_posters = recommend(selected_song)
+            recommended_music_names, recommended_music_posters, recommended_spotify_links = recommend(selected_song)
 
             if recommended_music_names and recommended_music_posters:
                 st.markdown(f"<div class='song-title'>Recommended songs for '{selected_song}'</div>", unsafe_allow_html=True)
 
                 st.markdown("<div class='recommendation-container'>", unsafe_allow_html=True)
-                for name, poster in zip(recommended_music_names, recommended_music_posters):
+                for name, poster, spotify_url in zip(recommended_music_names, recommended_music_posters, recommended_spotify_links):
                     st.markdown(f"""
                         <div class='recommendation-item'>
                             <img src='{poster}' alt='Album Cover'>
                             <p>{name}</p>
+                            <a href='{spotify_url}' target='_blank'>
+                                <button style="padding: 8px 12px; background-color: #1DB954; color: white; border: none; border-radius: 5px; cursor: pointer;">Play on Spotify</button>
+                            </a>
                         </div>
                     """, unsafe_allow_html=True)
                 st.markdown("</div>", unsafe_allow_html=True)
